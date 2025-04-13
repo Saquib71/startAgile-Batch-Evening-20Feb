@@ -66,11 +66,11 @@ Go to official pgae downloads Prometheus:
 
 https://prometheus.io/download/#prometheus
 
-# wget https://github.com/prometheus/prometheus/releases/download/v3.0.0/prometheus-3.0.0.linux-amd64.tar.gz
+# wget https://github.com/prometheus/prometheus/releases/download/v3.2.1/prometheus-3.2.1.linux-amd64.tar.gz
 
-# sudo tar -xvf prometheus-3.0.0.linux-amd64.tar.gz
+# sudo tar -xvf prometheus-3.2.1.linux-amd64.tar.gz
 Move the configuration file and set the owner to the prometheus
-cd prometheus-2.47.2.linux-amd64
+cd prometheus-3.2.1.linux-amd64
 sudo mv promotool /etc/prometheus
 sudo mv prometheus.yml /etc/prometheus
 sudo chown -R prometheus:prometheus /etc/prometheus
