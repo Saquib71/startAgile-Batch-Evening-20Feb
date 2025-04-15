@@ -1,0 +1,353 @@
+
+Use this step for project1, project2, project3
+As per the project create the ec2 instance using the terraform code file 
+
+Project 1 -> 3 EC2 machine 
+
+Project 2 -> 2 Ec2 server 
+
+Project 3 -> 
+
+
+============================================
+Create a new EC2 server on AWS - t2.micro 
+
+Execute below steps to install terraform and aws cli 
+
+# sudo su -
+
+# wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+# echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# sudo apt update && sudo apt install terraform -y
+
+# apt-get update
+
+# apt-get install awscli -y
+
+# aws configure
+
+Give the valid access key
+
+Give the valid secret key
+
+Press enter, no need to give any region and format option
+To verify if the credentials have been set for aws
+
+# cat ~/.aws/credentials
+
+
+==========================================
+
+Write the code to create Desired Ec2 Instances 
+Note: In the aws_instance resource in below code  make your give:
+  - correct ami of the correct region 
+  - give the name of exisitng keypair that is available on your machine downloads folder and also in AWS 
+
+# mkdir myfiles
+
+# cd myfiles 
+
+# vim aws_infra.tf 
+
+
+provider "aws" {
+
+region = "us-east-2"
+
+}
+
+
+resource "aws_vpc" "sl-vpc" {
+ cidr_block = "10.0.0.0/16"
+  tags = {
+   Name = "sl-vpc"
+}
+}
+resource "aws_subnet" "subnet-1"{
+
+vpc_id = aws_vpc.sl-vpc.id
+cidr_block = "10.0.1.0/24"
+depends_on = [aws_vpc.sl-vpc]
+map_public_ip_on_launch = true
+  tags = {
+   Name = "sl-subnet"
+}
+
+}
+
+resource "aws_route_table" "sl-route-table"{
+vpc_id = aws_vpc.sl-vpc.id
+  tags = {
+   Name = "sl-route-table"
+}
+
+}
+
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.subnet-1.id
+  route_table_id = aws_route_table.sl-route-table.id
+}
+
+resource "aws_internet_gateway" "gw" {
+ vpc_id = aws_vpc.sl-vpc.id
+ depends_on = [aws_vpc.sl-vpc]
+   tags = {
+   Name = "sl-gw"
+}
+
+}
+
+resource "aws_route" "sl-route" {
+
+route_table_id = aws_route_table.sl-route-table.id
+destination_cidr_block = "0.0.0.0/0"
+gateway_id = aws_internet_gateway.gw.id
+
+
+}
+
+
+variable "sg_ports" {
+type = list(number)
+default = [8080,80,22,443]
+
+}
+
+
+resource "aws_security_group" "sl-sg" {
+  name        = "sg_rule"
+  vpc_id = aws_vpc.sl-vpc.id
+  dynamic  "ingress" {
+    for_each = var.sg_ports
+    iterator = port
+    content{
+    from_port        = port.value
+    to_port          = port.value
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    }
+  }
+egress {
+
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+
+
+}
+}
+
+resource "aws_instance" "myec2" {
+  ami           = "ami-0c3b809fcf2445b6a"
+  instance_type = "t2.medium"
+  key_name = "02dec"
+  subnet_id = aws_subnet.subnet-1.id
+  security_groups = [aws_security_group.sl-sg.id]
+  tags = {
+    Name = "Project-EC2-DEV"
+  }
+
+}
+
+resource "aws_instance" "myec2-TEST" {
+  ami           = "ami-0c3b809fcf2445b6a"
+  instance_type = "t2.micro"
+  key_name = "02dec"
+  subnet_id = aws_subnet.subnet-1.id
+  security_groups = [aws_security_group.sl-sg.id]
+  tags = {
+    Name = "Project-EC2-TEST"
+  }
+
+}
+
+resource "aws_instance" "myec2-Prod" {
+  ami           = "ami-0c3b809fcf2445b6a"
+  instance_type = "t2.micro"
+  key_name = "02dec"
+  subnet_id = aws_subnet.subnet-1.id
+  security_groups = [aws_security_group.sl-sg.id]
+  tags = {
+    Name = "Project-EC2-Prod"
+  }
+
+}
+
+
+save the file 
+
+# terraform init 
+
+# terraform apply --auto-approve 
+
+===========================================
+Now connect to the Dev Server which got created on AWS 
+
+Install Ansible on this server 
+
+1  sudo apt update
+2  sudo apt install software-properties-common
+3  sudo add-apt-repository --yes --update ppa:ansible/ansible
+4  sudo apt install ansible -y
+
+
+RUN THE JENKINS KEY commands before you run the playbook
+
+1. sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+
+2. echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+
+============================
+Run the below playbook on the localhost 
+
+# vim playbook-install.yml 
+
+- name: Install and set up devops tools
+  hosts: localhost
+  become: true
+  tasks:
+  - name: Update the apt repo
+    command: apt-get update 
+  - name: Install multiple packages
+    package: name={{item}} state=present
+    loop:
+     - git
+     - docker.io
+     - openjdk-17-jdk
+  - name: install jenkins
+    command: sudo apt-get install jenkins -y
+  - name: start Jenkins and docker service 
+    service: name={{item}} state=started
+    loop:
+    - jenkins
+    - docker
+
+
+save the file and run the playbook 
+
+Now access the jenkisn server -> Setup the jenskins dashboard 
+
+Pls watch the recording of 15 April to see how this pipeline code was written
+and how we added the withCredentials plugin 
+
+
+Create a new job  and add the below pipeline Code 
+
+pipeline{
+
+agent none
+tools{
+    maven 'mymaven'
+}
+    stages{
+        stage('Checkout code')
+        {
+            agent any
+            steps{
+                git 'https://github.com/Sonal0409/star-agile-health-care.git'
+            }
+        }
+        
+        stage('Package code')
+        {
+            agent any
+            steps{
+                sh 'mvn package'
+            }
+        }
+        
+        stage('Build Image')
+        {
+            agent any
+            steps{
+                sh 'docker build -t myimage:project2 .'
+            }
+        }
+    
+    stage('push the image to dockerHub')
+    {
+        agent any
+        steps{
+            withCredentials([string(credentialsId: 'DOCKER_HUB_PASWD', variable: 'DOCKER_HUB_PASWD')]) {
+            sh 'docker login -u sonal04 -p ${DOCKER_HUB_PASWD}'
+}
+            sh 'docker tag myimage:project2 sonal04/myimage:project2'
+                sh 'docker push sonal04/myimage:project2'
+
+        }
+    }
+      
+    }
+    
+}
+
+Save the job and run the pipleine 
+
+You image should be in the docker hub 
+==================================================
+Setup Test server and Prod Server 
+
+Go to Ansible COntroller --> copy ssh keys of root user on the test server and prod Server 
+
+Create the inventory file and ansible.cfg file 
+
+# vim myinventory 
+
+[webserver]
+add_ip_address_test_server 
+add_ip_address_prod_server 
+
+save the file 
+
+# vim ansible.cfg 
+
+[defaults]
+inventory = /root/myinventory 
+
+save the file 
+
+
+Run the below playbook on ansible Controller 
+
+# vim playbook-Deploy.yml 
+
+- name: Install and deploy of test and prod server
+  hosts: webserver
+  become: true
+  tasks:
+  - name: Update the apt repo
+    command: apt-get update
+  - name: Install multiple packages
+    package: name={{item}} state=present
+    loop:
+     - git
+     - docker.io
+     - openjdk-17-jdk
+  - name: start Jenkins and docker service
+    service: name={{item}} state=started
+    loop:
+    - docker
+  - name: Deploy on Test server
+    command: sudo docker run -d -P sonal04/myimage:project2
+    delegate_to: 18.117.179.135
+  - name: Perform testing on Test server
+    command: echo "Testing on Server"
+  - name: Deploy on Prod Server
+    command: sudo docker run -d -P sonal04/myimage:project2
+    delegate_to: 18.221.50.80
+
+
+
+save and run the playbook 
+
+Go to test server and check 
+
+# docker ps -a --latest 
+
+
+
